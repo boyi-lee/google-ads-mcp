@@ -1,3 +1,5 @@
+import pytest
+
 from ads_mcp_v2 import server
 
 
@@ -25,16 +27,14 @@ def test_config_requires_credentials(monkeypatch):
     ]:
         monkeypatch.delenv(key, raising=False)
 
-    try:
+    with pytest.raises(RuntimeError) as exc_info:
         server._config()
-    except RuntimeError as exc:
-        message = str(exc)
-        assert "developer_token" in message
-        assert "client_id" in message
-        assert "client_secret" in message
-        assert "refresh_token" in message
-    else:
-        raise AssertionError("_config() should fail when credentials are missing")
+
+    message = str(exc_info.value)
+    assert "developer_token" in message
+    assert "client_id" in message
+    assert "client_secret" in message
+    assert "refresh_token" in message
 
 
 def test_config_normalizes_manager_id(monkeypatch):
@@ -46,6 +46,49 @@ def test_config_normalizes_manager_id(monkeypatch):
 
     cfg = server._config()
     assert cfg["login_customer_id"] == "1633623493"
+
+
+def test_customer_id_normalization():
+    assert server._normalize_customer_id("163-362-3493") == "1633623493"
+    with pytest.raises(ValueError):
+        server._normalize_customer_id("abc")
+
+
+def test_date_validation():
+    assert server._validate_dates("2026-08-01", "2026-08-26") == (
+        "2026-08-01",
+        "2026-08-26",
+    )
+    with pytest.raises(ValueError):
+        server._validate_dates("2026-08-26", "2026-08-01")
+    with pytest.raises(ValueError):
+        server._validate_dates("2026/08/01", "2026-08-26")
+
+
+def test_metric_payload():
+    class Metrics:
+        impressions = 1000
+        clicks = 50
+        cost_micros = 2_000_000
+        conversions = 4.0
+        conversions_value = 10.0
+
+    result = server._metric_payload(Metrics())
+    assert result["cost"] == 2.0
+    assert result["conversion_value"] == 10.0
+    assert result["roas"] == 5.0
+
+
+def test_metric_payload_zero_cost():
+    class Metrics:
+        impressions = 0
+        clicks = 0
+        cost_micros = 0
+        conversions = 0.0
+        conversions_value = 0.0
+
+    result = server._metric_payload(Metrics())
+    assert result["roas"] is None
 
 
 def test_plain_exception_is_structured():
