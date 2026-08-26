@@ -165,6 +165,59 @@ def get_account_performance(customer_id: str, start_date: str, end_date: str) ->
         return _error_payload(exc)
 
 
+@mcp.tool()
+def get_campaign_performance(customer_id: str, start_date: str, end_date: str, limit: int = 100) -> dict[str, Any]:
+    """Get campaign-level performance for a finite date range, ordered by spend."""
+    try:
+        customer_id = customer_id.replace("-", "")
+        limit = max(1, min(limit, 1000))
+        client = _client()
+        service = client.get_service("GoogleAdsService")
+        query = f"""
+            SELECT
+              campaign.id,
+              campaign.name,
+              campaign.status,
+              campaign.advertising_channel_type,
+              metrics.impressions,
+              metrics.clicks,
+              metrics.cost_micros,
+              metrics.conversions,
+              metrics.conversions_value
+            FROM campaign
+            WHERE segments.date BETWEEN '{start_date}' AND '{end_date}'
+            ORDER BY metrics.cost_micros DESC
+            LIMIT {limit}
+        """
+        rows = service.search(customer_id=customer_id, query=query)
+        campaigns = []
+        for row in rows:
+            cost = row.metrics.cost_micros / 1_000_000
+            conversion_value = float(row.metrics.conversions_value)
+            campaigns.append({
+                "campaign_id": str(row.campaign.id),
+                "campaign_name": row.campaign.name,
+                "status": row.campaign.status.name,
+                "channel_type": row.campaign.advertising_channel_type.name,
+                "impressions": int(row.metrics.impressions),
+                "clicks": int(row.metrics.clicks),
+                "cost": cost,
+                "conversions": float(row.metrics.conversions),
+                "conversion_value": conversion_value,
+                "roas": conversion_value / cost if cost else None,
+            })
+        return {
+            "ok": True,
+            "customer_id": customer_id,
+            "start_date": start_date,
+            "end_date": end_date,
+            "campaigns": campaigns,
+            "count": len(campaigns),
+        }
+    except Exception as exc:
+        return _error_payload(exc)
+
+
 def run_server() -> None:
     port = int(os.getenv("PORT", "8080"))
     mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
