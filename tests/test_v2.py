@@ -1,5 +1,3 @@
-import os
-
 from ads_mcp_v2 import server
 
 
@@ -13,7 +11,7 @@ def test_health_check_without_credentials(monkeypatch):
     ]:
         monkeypatch.delenv(key, raising=False)
 
-    result = server.health_check.fn()
+    result = server.health_check()
     assert result["ok"] is True
     assert result["credentials_ready"] is False
 
