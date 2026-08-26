@@ -25,3 +25,9 @@ jobs:
         run: pytest -q tests/test_v2.py
       - name: Build Docker image
         run: docker build -t google-ads-mcp-v2:ci .
+      - name: Start container smoke test
+        run: |
+          docker run -d --name google-ads-mcp-v2-ci -p 8080:8080 google-ads-mcp-v2:ci
+          sleep 3
+          docker ps --filter name=google-ads-mcp-v2-ci --filter status=running --format '{{.Names}}' | grep -q '^google-ads-mcp-v2-ci$'
+          docker logs google-ads-mcp-v2-ci
