@@ -22,3 +22,6 @@ dev = [
 
 [project.scripts]
 google-ads-mcp = "ads_mcp_v2.server:run_server"
+
+[tool.setuptools.packages.find]
+include = ["ads_mcp*"]
