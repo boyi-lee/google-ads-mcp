@@ -23,3 +23,5 @@ jobs:
         run: python -m py_compile ads_mcp_v2/server.py
       - name: Run v2 tests
         run: pytest -q tests/test_v2.py
+      - name: Build Docker image
+        run: docker build -t google-ads-mcp-v2:ci .
